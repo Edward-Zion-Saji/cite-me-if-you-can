@@ -1,3 +1,4 @@
 /ENV
 .env
 /qdrant_storage
+/experimental/__pycache__
