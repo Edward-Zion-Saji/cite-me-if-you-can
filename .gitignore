@@ -1,0 +1,3 @@
+/ENV
+.env
+/qdrant_storage
