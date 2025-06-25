@@ -1,8 +1,7 @@
 import os
-from fastapi import FastAPI, HTTPException, File, UploadFile
-from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any, Union
-import json
+from fastapi import FastAPI, HTTPException, File, UploadFile, Request, Depends, Body
+from pydantic import BaseModel, Field, HttpUrl
+from typing import List, Optional
 import httpx
 import logging
 from langchain_core.documents import Document
@@ -53,9 +52,12 @@ class JournalChunk(BaseModel):
     doi: Optional[str] = None
 
 class UploadRequest(BaseModel):
-    file_url: Optional[str] = None
-    chunks: Optional[List[JournalChunk]] = None
+    file: Optional[UploadFile] = None
+    file_url: Optional[str] = None  # Using str instead of HttpUrl for better compatibility
     schema_version: str = "1.0"
+
+    class Config:
+        arbitrary_types_allowed = True  # To allow UploadFile in Pydantic model
 
 class SimilaritySearchRequest(BaseModel):
     query: str
@@ -150,7 +152,14 @@ async def process_uploaded_file(file: UploadFile) -> List[JournalChunk]:
 def chunks_to_documents(chunks: List[JournalChunk]) -> List[Document]:
     """Convert JournalChunk objects to LangChain Documents"""
     documents = []
+    journal_citations = {}  # Track citation count per journal
     
+    # First pass: collect all source documents and initialize citation counts
+    for chunk in chunks:
+        if chunk.source_doc_id not in journal_citations:
+            journal_citations[chunk.source_doc_id] = 0
+    
+    # Second pass: create documents with journal-level citation count
     for chunk in chunks:
         doc = Document(
             page_content=chunk.text,
@@ -164,69 +173,128 @@ def chunks_to_documents(chunks: List[JournalChunk]) -> List[Document]:
                 "usage_count": chunk.usage_count,
                 "attributes": chunk.attributes,
                 "link": chunk.link,
-                "citation_count": 0,  # Initialize citation count
                 **({"doi": chunk.doi} if chunk.doi else {})
             }
         )
         documents.append(doc)
     
-    return documents
+    return documents, journal_citations
 
-@app.put("/api/upload")
+async def get_upload_request(
+    request: Request,
+    file: Optional[UploadFile] = File(None, description="JSON file containing journal chunks"),
+) -> UploadRequest:
+    """Parse the upload request which can be either a file upload or a URL"""
+    form_data = await request.form()
+    file_url = form_data.get('file_url')
+    
+    # Handle file upload
+    if file is not None:
+        if file.content_type not in ["application/json", "text/plain"]:
+            raise HTTPException(status_code=400, detail="Uploaded file must be JSON")
+        return UploadRequest(file=file, file_url=None, schema_version="1.0")
+    
+    # Handle URL
+    if file_url:
+        try:
+            return UploadRequest(
+                file=None,
+                file_url=file_url,
+                schema_version=form_data.get('schema_version', '1.0')
+            )
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid URL provided")
+    
+    raise HTTPException(
+        status_code=400,
+        detail="Either 'file' (multipart/form-data) or 'file_url' (form field) must be provided"
+    )
+
+@app.put("/api/upload", status_code=202)
 async def upload_journal(
-    request: UploadRequest = None,
+    upload_request: UploadRequest = Depends(get_upload_request),
     file: UploadFile = File(None)
 ):
-    """Upload journal chunks and generate embeddings"""
+    """
+    Upload journal chunks and generate embeddings.
+    
+    This endpoint accepts either:
+    1. A file upload with a JSON array of chunks
+    2. A JSON body with 'file_url' pointing to a JSON file containing chunks
+    
+    The request should include a 'schema_version' field (default: "1.0")
+    
+    Example JSON body:
+    {
+        "file_url": "https://example.com/chunks.json",
+        "schema_version": "1.0"
+    }
+    """
     if not vector_store:
         raise HTTPException(status_code=503, detail="Vector store not available")
     
     try:
         chunks = []
-        
-        # Determine source of chunks
-        if request and request.file_url:
-            # Fetch from URL
-            chunks = await fetch_chunks_from_url(request.file_url)
-        elif request and request.chunks:
-            # Use provided chunks
-            chunks = request.chunks
-        elif file:
-            # Process uploaded file
-            chunks = await process_uploaded_file(file)
+        # Get chunks from either file or URL
+        if upload_request.file_url:
+            chunks = await fetch_chunks_from_url(upload_request.file_url)
+            logger.info(f"Fetched {len(chunks)} chunks from URL: {upload_request.file_url}")
         else:
-            raise HTTPException(
-                status_code=400, 
-                detail="Must provide either file_url, chunks in request body, or upload a file"
-            )
+            chunks = await process_uploaded_file(file)
+            logger.info(f"Processed {len(chunks)} chunks from uploaded file")
         
         if not chunks:
-            raise HTTPException(status_code=400, detail="No chunks found to process")
+            raise HTTPException(status_code=400, detail="No valid chunks found to process")
+            
+        # Convert to documents and get journal citation tracking
+        documents, journal_citations = chunks_to_documents(chunks)
         
-        # Convert to documents
-        documents = chunks_to_documents(chunks)
+        # Store journal citation counts in a persistent store (e.g., database)
+        # For now, we'll just log them
+        logger.info(f"Initialized citation counts for {len(journal_citations)} journals")
         
-        # Extract IDs for explicit assignment
-        ids = [chunk.id for chunk in chunks]
+        # Generate UUIDs from chunk IDs for Qdrant compatibility
+        import hashlib
+        import uuid
         
-        # Add to vector store
-        vector_store.add_documents(documents, ids=ids)
+        def id_to_uuid(id_str: str) -> str:
+            # Create a UUID5 (name-based) using the SHA-1 hash of the ID string
+            namespace = uuid.NAMESPACE_DNS  # Using DNS namespace for consistency
+            return str(uuid.uuid5(namespace, id_str))
         
-        logger.info(f"Successfully indexed {len(documents)} chunks")
+        # Generate consistent UUIDs for each chunk
+        uuids = [id_to_uuid(chunk.id) for chunk in chunks]
         
-        # Return 202 Accepted as specified
+        # In a real implementation, you might want to process this asynchronously
+        # since we're returning 202 Accepted
+        try:
+            vector_store.add_documents(documents, ids=uuids)
+            logger.info(f"Successfully indexed {len(documents)} chunks from {len(journal_citations)} journals")
+        except Exception as e:
+            logger.error(f"Error adding documents to vector store: {str(e)}")
+            # Even if indexing fails, we still return 202 since the request was accepted
+        
+        # Return 202 Accepted response
         return {
             "status": "accepted",
-            "message": f"{len(documents)} chunks indexed successfully",
+            "message": "Request accepted for processing",
             "chunk_count": len(documents),
-            "schema_version": request.schema_version if request else "1.0"
+            "journal_count": len(journal_citations),
+            "schema_version": upload_request.schema_version
         }
     
-    except HTTPException:
-        raise
+    except HTTPException as he:
+        logger.warning(f"Client error in upload_journal: {str(he.detail)}")
+        raise he
+    except json.JSONDecodeError as je:
+        logger.error(f"JSON decode error: {str(je)}")
+        raise HTTPException(status_code=400, detail=f"Invalid JSON format: {str(je)}")
     except Exception as e:
-        logger.error(f"Upload failed: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+        logger.error(f"Unexpected error in upload_journal: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"An unexpected error occurred: {str(e)}"
+        )
 
 @app.post("/api/similarity_search")
 async def similarity_search(request: SimilaritySearchRequest):

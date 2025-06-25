@@ -33,22 +33,35 @@ documents = [
 client = QdrantClient(url="http://localhost:6333", prefer_grpc=True)
 collection_name = "research_data"
 
-# Create collection with optimized settings
+# Check if collection already exists
+collections = client.get_collections()
+collection_names = [collection.name for collection in collections.collections]
 
-client.create_collection(
-    collection_name=collection_name,
-    vectors_config=models.VectorParams(
-        size=1024,  # gte-large embedding dimension
-        distance=models.Distance.COSINE,
-        on_disk=True
-    ),
-    quantization_config=models.BinaryQuantization(
-        binary=models.BinaryQuantizationConfig(always_ram=True)
-    )
-)
-print(f"Created collection '{collection_name}'")
+if collection_name in collection_names:
+    print(f"Collection '{collection_name}' already exists. Skipping creation.")
+    # If you want to delete and recreate, uncomment the following:
+    # client.delete_collection(collection_name)
+    # print(f"Deleted existing collection '{collection_name}'")
+else:
+    # Create collection with optimized settings
+    try:
+        client.create_collection(
+            collection_name=collection_name,
+            vectors_config=models.VectorParams(
+                size=1024,  # gte-large embedding dimension
+                distance=models.Distance.COSINE,
+                on_disk=True
+            ),
+            quantization_config=models.BinaryQuantization(
+                binary=models.BinaryQuantizationConfig(always_ram=True)
+            )
+        )
+        print(f"Created collection '{collection_name}'")
+    except Exception as e:
+        print(f"Error creating collection: {e}")
+        print("Trying to continue with existing collection...")
 
-# Initialize embeddings model
+""" # Initialize embeddings model
 embeddings = FastEmbedEmbeddings(model_name="thenlper/gte-large")
 
 
@@ -77,3 +90,4 @@ for i, doc in enumerate(documents[:2]):
     print()
 
 
+ """
