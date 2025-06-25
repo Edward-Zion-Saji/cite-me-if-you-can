@@ -55,11 +55,11 @@ class ChatService:
             for i, res in enumerate(results, 1):
                 source_info = {
                     "id": i, 
-                    "source": res.source, 
+                    "source": res.doc_id, 
                     "text": res.text,
                     "section": res.section,
                     "citation_count": res.citation_count,
-                    "url": res.url if hasattr(res, 'url') else "#"  # Add URL if available
+                    "url": res.source
                 }
                 # Format source with markdown link
                 source_link = f"[{res.source}]({source_info['url']})" if source_info['url'] != "#" else res.source

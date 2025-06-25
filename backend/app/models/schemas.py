@@ -30,6 +30,7 @@ class SimilaritySearchRequest(BaseModel):
 
 class SearchResult(BaseModel):
     id: str
+    doc_id: str
     score: float
     text: str
     source: str

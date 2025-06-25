@@ -85,29 +85,35 @@ class VectorStoreService:
             return None
             
     def increment_usage_count(self, chunk_ids: List[str]) -> None:
-        """Increment usage_count for the specified chunk IDs"""
+        """Increment usage_count for the specified chunk IDs while preserving all metadata"""
         if not chunk_ids:
             return
             
         try:
-            # Get current usage counts
+            # Get full metadata for each chunk
             records = self.client.retrieve(
                 collection_name=self.collection_name,
                 ids=chunk_ids,
-                with_payload=["metadata.usage_count"]
+                with_payload=True
             )
             
             # Prepare updates
             for record in records:
-                if record.payload and "metadata" in record.payload and "usage_count" in record.payload["metadata"]:
-                    new_count = record.payload["metadata"]["usage_count"] + 1
-                    # Update the specific field in metadata
-                    self.client.set_payload(
-                        collection_name=self.collection_name,
-                        payload={"usage_count": new_count},
-                        points=[record.id],
-                        key="metadata.usage_count"
-                    )
+                if not record.payload or "metadata" not in record.payload:
+                    continue
+                    
+                metadata = record.payload["metadata"]
+                current_count = metadata.get("usage_count", 0)
+                
+                # Update the usage count in the metadata
+                metadata["usage_count"] = current_count + 1
+                
+                # Update the entire metadata to preserve all fields
+                self.client.set_payload(
+                    collection_name=self.collection_name,
+                    payload={"metadata": metadata},
+                    points=[record.id]
+                )
                 
         except Exception as e:
             logger.error(f"Failed to update usage counts: {e}")

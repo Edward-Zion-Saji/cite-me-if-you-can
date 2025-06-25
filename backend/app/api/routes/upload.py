@@ -63,7 +63,6 @@ async def upload_journal(
             logger.info(f"Successfully indexed {len(documents)} chunks from {len(journal_citations)} journals")
         except Exception as e:
             logger.error(f"Error adding documents to vector store: {str(e)}")
-            # Even if indexing fails, we still return 202 since the request was accepted
         
         # Return 202 Accepted response
         return {

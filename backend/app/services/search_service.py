@@ -27,12 +27,14 @@ class SearchService:
             chunk_ids = []
             
             for result in results:
+                print(result.payload)
                 metadata = result.payload["metadata"]
                 chunk_id = str(result.id)
                 
                 search_results.append(SearchResult(
                     id=chunk_id,
                     score=result.score,
+                    doc_id=metadata["source_doc_id"],
                     text=result.payload["page_content"],
                     source=metadata["link"],
                     section=metadata["section_heading"],
