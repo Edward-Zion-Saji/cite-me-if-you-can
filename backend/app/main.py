@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import logging
 
 from .config import settings
-from .api.routes import upload, search, chat, health
+from .api import api_router
 from .dependencies import get_vector_store, get_embedding_service
 
 
@@ -39,11 +39,8 @@ def create_application() -> FastAPI:
             logger.error(f"Failed to initialize services: {e}")
             raise
     
-    # Include routes
-    app.include_router(upload.router, prefix=settings.API_PREFIX)
-    app.include_router(search.router, prefix=settings.API_PREFIX)
-    app.include_router(chat.router, prefix=settings.API_PREFIX)
-    app.include_router(health.router)  
+    # Include API router with prefix
+    app.include_router(api_router, prefix=settings.API_PREFIX)
     return app
 
 app = create_application()
