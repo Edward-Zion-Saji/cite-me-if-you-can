@@ -18,41 +18,52 @@ class CitationService:
         try:
             # Group results by source_doc_id to avoid duplicate counts for the same document
             seen_docs = set()
-            unique_results = []
+            doc_to_results = {}
             
+            # First pass: group results by document
             for result in search_results:
                 # Use source as document identifier since it's the closest we have to source_doc_id
                 doc_key = result.source
                 if doc_key not in seen_docs:
                     seen_docs.add(doc_key)
-                    unique_results.append((doc_key, result))
+                    doc_to_results[doc_key] = []
+                doc_to_results[doc_key].append(result)
             
-            # Update citation counts for each unique document
-            for doc_key, result in unique_results:
+            # Process each unique document
+            for doc_key, doc_results in doc_to_results.items():
+                # Get first result for this document to get metadata
+                first_result = doc_results[0]
+                
                 # Try to find existing citation record by source_doc_id
                 citation = self.db.query(Citation).filter(Citation.source_doc_id == doc_key).first()
                 
                 if citation:
                     # Update existing citation
                     citation.citation_count += 1
-                    # Update the ID to the latest chunk ID for reference
-                    citation.id = result.id
                 else:
-                    # Create new citation record
+                    # Create new citation record with a deterministic ID based on the document
+                    # This ensures we don't get unique constraint violations
+                    import hashlib
+                    doc_id = hashlib.md5(doc_key.encode()).hexdigest()
+                    
                     citation = Citation(
-                        id=result.id,
+                        id=doc_id,
                         source_doc_id=doc_key,
                         citation_count=1,
-                        title=result.section or doc_key  # Use section or doc_key as title
+                        title=first_result.section or doc_key  # Use section or doc_key as title
                     )
                     self.db.add(citation)
                 
                 # Update the citation count in all results from this document
-                for r in search_results:
-                    if r.source == doc_key:
-                        r.citation_count = citation.citation_count
-            
-            self.db.commit()
+                for result in doc_results:
+                    result.citation_count = citation.citation_count
+                
+                # Commit after each document to maintain consistency
+                self.db.commit()
+                
+        except Exception as e:
+            self.db.rollback()
+            logger.error(f"Error in increment_citation_counts: {str(e)}", exc_info=True)
             
         except Exception as e:
             self.db.rollback()

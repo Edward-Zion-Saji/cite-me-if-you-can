@@ -14,7 +14,7 @@ class SearchService:
         self.embedding_service = embedding_service
     
     async def similarity_search(self, query: str, k: int = 10, min_score: float = 0.25) -> List[SearchResult]:
-        """Perform semantic similarity search"""
+        """Perform semantic similarity search and update usage counts"""
         try:
             # Generate query embedding
             query_embedding = self.embedding_service.embed_query(query)
@@ -22,18 +22,28 @@ class SearchService:
             # Perform search
             results = self.vector_store.search(query_embedding, k=k, min_score=min_score)
             
-            # Format results
+            # Format results and collect chunk IDs for usage tracking
             search_results = []
+            chunk_ids = []
+            
             for result in results:
                 metadata = result.payload["metadata"]
+                chunk_id = str(result.id)
+                
                 search_results.append(SearchResult(
-                    id=result.id,
+                    id=chunk_id,
                     score=result.score,
                     text=result.payload["page_content"],
                     source=metadata["link"],
                     section=metadata["section_heading"],
-                    citation_count=metadata.get("citation_count", 0)
+                    citation_count=metadata.get("citation_count", 0),
+                    usage_count=metadata.get("usage_count", 0)
                 ))
+                chunk_ids.append(chunk_id)
+            
+            # Update usage counts for retrieved chunks (fire and forget)
+            if chunk_ids:
+                self.vector_store.increment_usage_count(chunk_ids)
             
             logger.info(f"Similarity search returned {len(search_results)} results")
             return search_results

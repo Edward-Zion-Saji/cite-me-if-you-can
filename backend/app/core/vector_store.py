@@ -83,3 +83,33 @@ class VectorStoreService:
         except Exception as e:
             logger.error(f"Failed to get collection info: {e}")
             return None
+            
+    def increment_usage_count(self, chunk_ids: List[str]) -> None:
+        """Increment usage_count for the specified chunk IDs"""
+        if not chunk_ids:
+            return
+            
+        try:
+            # Get current usage counts
+            records = self.client.retrieve(
+                collection_name=self.collection_name,
+                ids=chunk_ids,
+                with_payload=["metadata.usage_count"]
+            )
+            
+            # Prepare updates
+            for record in records:
+                if record.payload and "metadata" in record.payload and "usage_count" in record.payload["metadata"]:
+                    new_count = record.payload["metadata"]["usage_count"] + 1
+                    # Update the specific field in metadata
+                    self.client.set_payload(
+                        collection_name=self.collection_name,
+                        payload={"usage_count": new_count},
+                        points=[record.id],
+                        key="metadata.usage_count"
+                    )
+                
+        except Exception as e:
+            logger.error(f"Failed to update usage counts: {e}")
+            # Don't fail the request if usage count update fails
+            pass

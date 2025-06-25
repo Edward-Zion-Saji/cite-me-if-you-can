@@ -35,6 +35,7 @@ class SearchResult(BaseModel):
     source: str
     section: str
     citation_count: int
+    usage_count: int = 0
 
 class JournalMetadata(BaseModel):
     journal_id: str
