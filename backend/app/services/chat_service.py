@@ -1,18 +1,22 @@
 from typing import List, Dict, Any, Tuple
-from fastapi import HTTPException
+from fastapi import HTTPException, Depends
 import logging
 import re
-
 from ..models.schemas import SearchResult, ChatRequest
 from ..core.llm import LLMService
 from ..services.search_service import SearchService
+from ..services.citation_service import CitationService, get_citation_service
 
 logger = logging.getLogger(__name__)
 
 class ChatService:
-    def __init__(self, llm_service: LLMService, search_service: SearchService):
+    def __init__(self, 
+                 llm_service: LLMService, 
+                 search_service: SearchService,
+                 citation_service: CitationService):
         self.llm_service = llm_service
         self.search_service = search_service
+        self.citation_service = citation_service
     
     async def chat(self, chat_request: ChatRequest) -> Dict[str, Any]:
         """
@@ -34,6 +38,10 @@ class ChatService:
                 k=5,  # Default to 5 results
                 min_score=0.25
             )
+            
+            # Update citation counts for the retrieved documents
+            if results:
+                self.citation_service.increment_citation_counts(results)
             
             if not results:
                 return {
@@ -64,9 +72,9 @@ class ChatService:
             response_text = self.llm_service.generate_response([
                 ("system", 
                  "You are a research assistant. Based on the query you are given the following context from appropriate sources. "
-                 "Include inline citations in markdown format like [1](url) where the number links to the source. "
+                 "Include inline citations in markdown format like [[1](url)] where the number links to the source. "
                  "The citation number should be a hyperlink to the original source. "
-                 "When citing, use the format: [source title](source_url) where the title is clickable. "
+                 "When citing, use the format: [[source title](source_url)] where the title is clickable. "
                  "Be concise and relevant and answer the question directly without any preface. If the context doesn't contain relevant information, say: I couldn\'t find relevant information in the knowledge base."),
                 ("human", f"Context:\n{context}\n\nQuestion: {chat_request.query}")
             ])
