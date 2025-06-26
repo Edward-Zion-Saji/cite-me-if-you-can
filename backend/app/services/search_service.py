@@ -1,4 +1,4 @@
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from fastapi import HTTPException
 import logging
 
@@ -9,9 +9,10 @@ from ..core.embeddings import EmbeddingService
 logger = logging.getLogger(__name__)
 
 class SearchService:
-    def __init__(self, vector_store: VectorStoreService, embedding_service: EmbeddingService):
+    def __init__(self, vector_store: VectorStoreService, embedding_service: EmbeddingService, citation_service: Optional[Any] = None):
         self.vector_store = vector_store
         self.embedding_service = embedding_service
+        self.citation_service = citation_service
     
     async def similarity_search(self, query: str, k: int = 10, min_score: float = 0.25) -> List[SearchResult]:
         """Perform semantic similarity search and update usage counts"""
@@ -25,23 +26,50 @@ class SearchService:
             # Format results and collect chunk IDs for usage tracking
             search_results = []
             chunk_ids = []
+            doc_ids = set()
             
+            # First pass: extract doc_ids and prepare initial results
             for result in results:
-                print(result.payload)
                 metadata = result.payload["metadata"]
+                doc_id = metadata["source_doc_id"]
+                doc_ids.add(doc_id)
                 chunk_id = str(result.id)
                 
-                search_results.append(SearchResult(
-                    id=chunk_id,
-                    score=result.score,
-                    doc_id=metadata["source_doc_id"],
-                    text=result.payload["page_content"],
-                    source=metadata["link"],
-                    section=metadata["section_heading"],
-                    citation_count=metadata.get("citation_count", 0),
-                    usage_count=metadata.get("usage_count", 0)
-                ))
+                search_results.append({
+                    'id': chunk_id,
+                    'score': result.score,
+                    'doc_id': doc_id,
+                    'text': result.payload["page_content"],
+                    'source': metadata["link"],
+                    'section': metadata["section_heading"],
+                    'usage_count': metadata.get("usage_count", 0),
+                    'citation_count': 0  # Will be updated after fetching from citation service
+                })
                 chunk_ids.append(chunk_id)
+            
+            # Fetch citation counts for all chunk IDs
+            citation_counts = {}
+            if self.citation_service and chunk_ids:
+                citation_counts = self.citation_service.get_citation_counts(chunk_ids)
+            
+            # Update search results with citation counts
+            for result in search_results:
+                result['citation_count'] = citation_counts.get(result['id'], 0)
+            
+            # Convert to SearchResult objects
+            search_results = [
+                SearchResult(
+                    id=result['id'],
+                    score=result['score'],
+                    doc_id=result['doc_id'],
+                    text=result['text'],
+                    source=result['source'],
+                    section=result['section'],
+                    citation_count=result['citation_count'],
+                    usage_count=result['usage_count']
+                )
+                for result in search_results
+            ]
             
             # Update usage counts for retrieved chunks (fire and forget)
             if chunk_ids:

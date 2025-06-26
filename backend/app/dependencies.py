@@ -23,9 +23,10 @@ def get_upload_service() -> UploadService:
 
 def get_search_service(
     vector_store: VectorStoreService = Depends(get_vector_store),
-    embedding_service: EmbeddingService = Depends(get_embedding_service)
+    embedding_service: EmbeddingService = Depends(get_embedding_service),
+    citation_service: CitationService = Depends(get_citation_service)
 ) -> SearchService:
-    return SearchService(vector_store, embedding_service)
+    return SearchService(vector_store, embedding_service, citation_service)
 
 def get_chat_service(
     llm_service: LLMService = Depends(get_llm_service),

@@ -1,0 +1,401 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="flex flex-col h-[calc(100vh-10rem)]">
+    <!-- Tabs -->
+    <div class="border-b border-gray-200 mb-6">
+        <nav class="-mb-px flex space-x-8" aria-label="Tabs">
+            <button id="chat-tab" class="tab-button border-indigo-500 text-indigo-600 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm" data-tab="chat">
+                Chat
+            </button>
+            <button id="search-tab" class="tab-button border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm" data-tab="search">
+                Search
+            </button>
+            <button id="citations-tab" class="tab-button border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm" data-tab="citations">
+                Citations
+            </button>
+            <button id="upload-tab" class="tab-button border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm" data-tab="upload">
+                Upload
+            </button>
+        </nav>
+    </div>
+
+    <!-- Chat Tab -->
+    <div id="chat-container" class="tab-content flex-1 flex flex-col bg-white rounded-lg shadow overflow-hidden">
+        <div id="chat-messages" class="flex-1 overflow-y-auto p-4 space-y-4">
+            <!-- Messages will be added here -->
+        </div>
+        <div class="border-t border-gray-200 p-4">
+            <form id="chat-form" class="flex space-x-2">
+                <input type="text" id="user-input" 
+                    class="flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" 
+                    placeholder="Type your message..." required>
+                <button type="submit" 
+                    class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                    Send
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Search Tab -->
+    <div id="search-container" class="tab-content hidden flex-1 flex flex-col bg-white rounded-lg shadow overflow-hidden">
+        <div class="p-4 border-b">
+            <form id="search-form" class="flex space-x-2">
+                <input type="text" id="search-query" 
+                    class="flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" 
+                    placeholder="Enter search query..." required>
+                <button type="submit" 
+                    class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                    Search
+                </button>
+            </form>
+        </div>
+        <div id="search-results" class="flex-1 overflow-y-auto p-4 space-y-4">
+            <!-- Search results will be added here -->
+        </div>
+    </div>
+
+    <!-- Citations Tab -->
+    <div id="citations-container" class="tab-content hidden flex-1 flex flex-col bg-white rounded-lg shadow overflow-hidden">
+        <div class="p-4">
+            <h2 class="text-lg font-medium text-gray-900 mb-4">Citation Statistics</h2>
+            <div id="citation-stats" class="space-y-4">
+                <!-- Citation stats will be added here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Upload Tab -->
+    <div id="upload-container" class="tab-content hidden flex-1 flex flex-col bg-white rounded-lg shadow overflow-hidden">
+        <div class="p-4">
+            <div class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
+                <div class="space-y-1 text-center">
+                    <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true">
+                        <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                    <div class="flex text-sm text-gray-600">
+                        <label for="file-upload" class="relative cursor-pointer bg-white rounded-md font-medium text-indigo-600 hover:text-indigo-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-indigo-500">
+                            <span>Upload a file</span>
+                            <input id="file-upload" name="file-upload" type="file" class="sr-only" accept=".pdf,.json,.txt">
+                        </label>
+                        <p class="pl-1">or drag and drop</p>
+                    </div>
+                    <p class="text-xs text-gray-500">JSON</p>
+                </div>
+            </div>
+            <div id="upload-status" class="mt-4 text-sm text-gray-600"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Tab switching
+    document.querySelectorAll('.tab-button').forEach(button => {
+        button.addEventListener('click', () => {
+            // Update active tab
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.remove('border-indigo-500', 'text-indigo-600');
+                btn.classList.add('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
+            });
+            button.classList.add('border-indigo-500', 'text-indigo-600');
+            button.classList.remove('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
+
+            // Show active tab content
+            const tabId = button.dataset.tab;
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.add('hidden');
+            });
+            document.getElementById(`${tabId}-container`).classList.remove('hidden');
+        });
+    });
+
+    // Chat functionality
+    const chatForm = document.getElementById('chat-form');
+    const chatMessages = document.getElementById('chat-messages');
+    const userInput = document.getElementById('user-input');
+
+    chatForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const message = userInput.value.trim();
+        if (!message) return;
+
+        // Add user message to chat
+        addMessage('user', message);
+        userInput.value = '';
+
+        try {
+            const response = await fetch('/api/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ query: message })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            addMessage('assistant', data.response, data.sources);
+        } catch (error) {
+            console.error('Error:', error);
+            addMessage('assistant', 'Sorry, there was an error processing your request.');
+        }
+    });
+
+    function addMessage(role, content, citations = []) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `flex ${role === 'user' ? 'justify-end' : 'justify-start'}`;
+        
+        const bubble = document.createElement('div');
+        bubble.className = `rounded-lg px-4 py-2 max-w-3xl ${role === 'user' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-800'}`;
+        
+        // Render markdown content
+        bubble.innerHTML = `<div class="markdown-content">${renderMarkdown(content)}</div>`;
+        
+        // Add citations if any
+        if (citations && citations.length > 0) {
+            const citationsDiv = document.createElement('div');
+            citationsDiv.className = 'mt-2 pt-2 border-t border-gray-200 text-xs text-gray-500';
+            citationsDiv.innerHTML = '<strong>Sources:</strong><ul class="mt-1 space-y-1">' + 
+                citations.map(cit => 
+                    `<li>${cit.id}. <a href="${cit.url}" target="_blank" class="text-indigo-500 hover:underline">${cit.source}</a></li>`
+                ).join('') + '</ul>';
+            bubble.appendChild(citationsDiv);
+        }
+        
+        messageDiv.appendChild(bubble);
+        chatMessages.appendChild(messageDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    // Search functionality
+    const searchForm = document.getElementById('search-form');
+    const searchResults = document.getElementById('search-results');
+    
+    searchForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const query = document.getElementById('search-query').value.trim();
+        if (!query) return;
+
+        searchResults.innerHTML = '<div class="text-center py-4 text-gray-500">Searching...</div>';
+
+        try {
+            const response = await fetch('/api/search', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ query })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const responseData = await response.json();
+            console.log('Raw API response:', responseData);
+            
+            // Debug: Log the exact type and structure
+            console.log('Response type:', typeof responseData);
+            console.log('Is array?', Array.isArray(responseData));
+            
+            // Handle both array and object responses
+            let searchResults = [];
+            if (Array.isArray(responseData)) {
+                searchResults = responseData;
+            } else if (responseData && Array.isArray(responseData.results)) {
+                searchResults = responseData.results;
+            } else if (responseData && typeof responseData === 'object') {
+                // If it's a single result object, wrap it in an array
+                searchResults = [responseData];
+            }
+            
+            console.log('Final search results:', searchResults);
+            console.log('Number of results:', searchResults.length);
+            
+            // Debug: Log the first result's structure if it exists
+            if (searchResults.length > 0) {
+                console.log('First result keys:', Object.keys(searchResults[0]));
+                console.log('First result:', searchResults[0]);
+            }
+            
+            displaySearchResults(searchResults);
+        } catch (error) {
+            console.error('Error:', error);
+            searchResults.innerHTML = '<div class="text-center py-4 text-red-500">Error performing search</div>';
+        }
+    });
+
+    function displaySearchResults(results) {
+        console.log('Raw search results:', results);
+        
+        if (!results || !Array.isArray(results) || results.length === 0) {
+            searchResults.innerHTML = `
+                <div class="text-center py-8">
+                    <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <h3 class="mt-2 text-sm font-medium text-gray-900">No results found</h3>
+                    <p class="mt-1 text-sm text-gray-500">Try different search terms or check your query.</p>
+                </div>`;
+            return;
+        }
+
+        searchResults.innerHTML = results.map((result, index) => {
+            // Safely access properties with fallbacks
+            const source = result.source || 'Unknown source';
+            const score = typeof result.score === 'number' ? (result.score * 100).toFixed(1) + '%' : 'N/A';
+            const text = result.text || result.content || 'No content available';
+            const section = result.section ? `Section: ${result.section}` : '';
+            const citationCount = result.citation_count || 0;
+            const usageCount = result.usage_count || 0;
+            const docId = result.doc_id || '';
+            const sourceUrl = result.source || '#';
+            
+            // Truncate long text
+            const truncatedText = text.length > 300 ? text.substring(0, 300) + '...' : text;
+            
+            return `
+            <div class="border rounded-lg p-4 hover:bg-gray-50 mb-4 transition-shadow duration-200 hover:shadow-md">
+                <div class="flex justify-between items-start">
+                    <div class="flex-1 min-w-0">
+                        <h3 class="text-sm font-medium text-gray-900 truncate">
+                            <a href="${sourceUrl}" target="_blank" class="hover:text-indigo-600">
+                                ${source}
+                            </a>
+                        </h3>
+                        <p class="text-xs text-gray-500 truncate">${docId}</p>
+                    </div>
+                    <span class="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+                        ${score} match
+                    </span>
+                </div>
+                
+                <div class="mt-2">
+                    <p class="text-sm text-gray-700">${truncatedText}</p>
+                    ${section ? `<p class="mt-1 text-xs text-indigo-600 font-medium">${section}</p>` : ''}
+                </div>
+                
+                <div class="mt-3 flex items-center text-xs text-gray-500">
+                    <div class="flex items-center">
+                        <svg class="h-4 w-4 text-gray-400 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                        </svg>
+                        <span>${citationCount} citations</span>
+                    </div>
+                    <span class="mx-2">•</span>
+                    <div class="flex items-center">
+                        <svg class="h-4 w-4 text-gray-400 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                        <span>${usageCount} usages</span>
+                    </div>
+                    ${docId ? `
+                    <div class="ml-auto">
+                        <button class="text-indigo-600 hover:text-indigo-900 font-medium text-xs hover:underline" 
+                                data-doc-id="${sourceUrl}">
+                            <a href="${sourceUrl}" target="_blank">View Full Document</a>
+                        </button>
+                    </div>` : ''}
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    // Citations functionality
+    async function loadCitationStats() {
+        try {
+            const response = await fetch('/api/citations');
+            const data = await response.json();
+            
+            const statsContainer = document.getElementById('citation-stats');
+            if (!data || data.length === 0) {
+                statsContainer.innerHTML = '<p class="text-gray-500">No citation data available</p>';
+                return;
+            }
+            
+            // Sort by citation count in descending order
+            const sortedCitations = [...data].sort((a, b) => b.citation_count - a.citation_count);
+            
+            statsContainer.innerHTML = `
+                <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+                    <div class="px-4 py-5 sm:px-6">
+                        <h3 class="text-lg leading-6 font-medium text-gray-900">Top Cited Documents</h3>
+                        <p class="mt-1 max-w-2xl text-sm text-gray-500">Documents sorted by citation count</p>
+                    </div>
+                    <div class="border-t border-gray-200">
+                        <dl>
+                            ${sortedCitations.map((doc, index) => `
+                                <div class="${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                                    <dt class="text-sm font-medium text-gray-500">
+                                        ${index + 1}. ${doc.source_doc_id || 'Unknown source'}
+                                        ${doc.url ? `<a href="${doc.url}" target="_blank" class="ml-2 text-indigo-600 hover:text-indigo-500 text-xs">(view)</a>` : ''}
+                                    </dt>
+                                    <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                                        <div class="flex items-center">
+                                            <div class="w-full bg-gray-200 rounded-full h-2.5 mr-2">
+                                                <div class="bg-indigo-600 h-2.5 rounded-full" style="width: ${(doc.citation_count / Math.max(1, sortedCitations[0].citation_count)) * 100}%"></div>
+                                            </div>
+                                            <span>${doc.citation_count} citations</span>
+                                        </div>
+                                    </dd>
+                                </div>
+                            `).join('')}
+                        </dl>
+                    </div>
+                </div>
+            `;
+        } catch (error) {
+            console.error('Error loading citation stats:', error);
+            document.getElementById('citation-stats').innerHTML = 
+                '<p class="text-red-500">Error loading citation statistics</p>';
+        }
+    }
+
+    // Upload functionality
+    const fileUpload = document.getElementById('file-upload');
+    const uploadStatus = document.getElementById('upload-status');
+
+    fileUpload.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        uploadStatus.textContent = 'Uploading...';
+        uploadStatus.className = 'mt-4 text-sm text-blue-600';
+
+        try {
+            const response = await fetch('/api/upload', {
+                method: 'POST',
+                body: formData
+            });
+
+            const result = await response.json();
+            if (response.ok) {
+                uploadStatus.textContent = 'File uploaded successfully!';
+                uploadStatus.className = 'mt-4 text-sm text-green-600';
+                // Clear the file input
+                fileUpload.value = '';
+            } else {
+                throw new Error(result.error || 'Upload failed');
+            }
+        } catch (error) {
+            console.error('Upload error:', error);
+            uploadStatus.textContent = `Error: ${error.message}`;
+            uploadStatus.className = 'mt-4 text-sm text-red-600';
+        }
+    });
+
+    // Load citation stats when citations tab is shown
+    document.getElementById('citations-tab').addEventListener('click', loadCitationStats);
+
+    // Initialize with chat tab active
+    document.querySelector('.tab-button').click();
+</script>
+{% endblock %}

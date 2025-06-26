@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cite me if you can</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.5/dist/purify.min.js"></script>
+    <style>
+        .markdown-content {
+            line-height: 1.6;
+        }
+        .markdown-content p {
+            margin-bottom: 1rem;
+        }
+        .markdown-content a {
+            color: #3b82f6;
+            text-decoration: underline;
+        }
+        .markdown-content pre {
+            background-color: #1e293b;
+            color: #f8fafc;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin: 1rem 0;
+            overflow-x: auto;
+        }
+        .markdown-content code {
+            font-family: monospace;
+            background-color: #f1f5f9;
+            padding: 0.2rem 0.4rem;
+            border-radius: 0.25rem;
+            color: #334155;
+        }
+        .markdown-content pre code {
+            background-color: transparent;
+            color: inherit;
+            padding: 0;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <nav class="bg-white shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex
+                    <div class="flex-shrink-0 flex items-center">
+                        <h1 class="text-xl font-bold text-gray-800">Research Assistant Tool</h1>
+                    </div>
+                    <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
+                        
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        {% block content %}{% endblock %}
+    </main>
+
+    <script>
+        // Function to render markdown safely
+        function renderMarkdown(markdown) {
+            if (!markdown) return '';
+            // Sanitize the markdown to prevent XSS
+            const clean = DOMPurify.sanitize(markdown);
+            // Render markdown to HTML
+            return marked.parse(clean);
+        }
+    </script>
+</body>
+</html>
