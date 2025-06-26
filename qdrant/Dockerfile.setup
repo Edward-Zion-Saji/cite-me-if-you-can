@@ -1,0 +1,22 @@
+FROM python:3.10-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies
+COPY backend/requirements.txt .
+# Install only required packages for setup
+RUN pip install --no-cache-dir \
+    qdrant-client==1.14.3 \
+    langchain-qdrant==0.2.0 \
+    fastembed==0.7.1
+
+# Copy setup script
+COPY utils/qdrant_setup.py .
+
+# Command to run the setup
+CMD ["python", "qdrant_setup.py"]

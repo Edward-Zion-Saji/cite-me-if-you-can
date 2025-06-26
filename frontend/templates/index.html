@@ -58,13 +58,40 @@
 
     <!-- Citations Tab -->
     <div id="citations-container" class="tab-content hidden flex-1 flex flex-col bg-white rounded-lg shadow overflow-hidden">
-        <div class="p-4">
+        <div class="p-4 flex flex-col h-full">
             <h2 class="text-lg font-medium text-gray-900 mb-4">Citation Statistics</h2>
-            <div id="citation-stats" class="space-y-4">
+            <div id="citation-stats" class="flex-1 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 hover:scrollbar-thumb-gray-400">
                 <!-- Citation stats will be added here -->
             </div>
         </div>
     </div>
+    
+    <style>
+        /* Custom scrollbar for WebKit browsers */
+        #citation-stats::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        #citation-stats::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 3px;
+        }
+        
+        #citation-stats::-webkit-scrollbar-thumb {
+            background: #cbd5e0;
+            border-radius: 3px;
+        }
+        
+        #citation-stats::-webkit-scrollbar-thumb:hover {
+            background: #a0aec0;
+        }
+        
+        /* For Firefox */
+        #citation-stats {
+            scrollbar-width: thin;
+            scrollbar-color: #cbd5e0 #f1f1f1;
+        }
+    </style>
 
     <!-- Upload Tab -->
     <div id="upload-container" class="tab-content hidden flex-1 flex flex-col bg-white rounded-lg shadow overflow-hidden">
@@ -156,7 +183,7 @@
         bubble.innerHTML = `<div class="markdown-content">${renderMarkdown(content)}</div>`;
         
         // Add citations if any
-        if (citations && citations.length > 0) {
+        /* if (citations && citations.length > 0) {
             const citationsDiv = document.createElement('div');
             citationsDiv.className = 'mt-2 pt-2 border-t border-gray-200 text-xs text-gray-500';
             citationsDiv.innerHTML = '<strong>Sources:</strong><ul class="mt-1 space-y-1">' + 
@@ -164,7 +191,7 @@
                     `<li>${cit.id}. <a href="${cit.url}" target="_blank" class="text-indigo-500 hover:underline">${cit.source}</a></li>`
                 ).join('') + '</ul>';
             bubble.appendChild(citationsDiv);
-        }
+        } */
         
         messageDiv.appendChild(bubble);
         chatMessages.appendChild(messageDiv);

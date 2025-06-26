@@ -28,6 +28,7 @@ venv/
 # Qdrant
 /qdrant_storage
 /experimental/qdrant_storage
+/qdrant/qdrant_storage
 /backend/app/services/__pycache__
 # IDE
 .idea/
